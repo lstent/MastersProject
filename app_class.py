@@ -4,7 +4,7 @@ import cv2
 import time
 from numpy import ones, vstack
 from numpy.linalg import lstsq
-from directkeys import PressKey, W, A, S, D
+from directkeys import PressKey, ReleaseKey,  W, A, S, D
 from statistics import mean
 
 
@@ -104,7 +104,7 @@ def draw_lanes(img, lines, color=[0, 255, 255], thickness=3):
         l1_x1, l1_y1, l1_x2, l1_y2 = average_lane(final_lanes[lane1_id])
         l2_x1, l2_y1, l2_x2, l2_y2 = average_lane(final_lanes[lane2_id])
 
-        return [l1_x1, l1_y1, l1_x2, l1_y2], [l2_x1, l2_y1, l2_x2, l2_y2]
+        return [l1_x1, l1_y1, l1_x2, l1_y2], [l2_x1, l2_y1, l2_x2, l2_y2], lane1_id, lane2_id
     except Exception as e:
         print(str(e))
 
@@ -118,6 +118,13 @@ def process_img(image):
 
     processed_img = cv2.GaussianBlur(processed_img, (5, 5), 0)
 
+    corners = cv2.goodFeaturesToTrack(processed_img, 100, 0.01, 10)
+    corners = np.int0(corners)
+
+    for corner in corners:
+        x, y = corner.ravel()
+        cv2.circle(processed_img, (x, y), 3, 255, -1)
+
     vertices = np.array([[10, 10], [10, 400], [300, 300], [500, 300], [800, 400], [800, 10],
                          ], np.int32)
 
@@ -126,8 +133,10 @@ def process_img(image):
     # more info: http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_houghlines/py_houghlines.html
     #                                     rho   theta   thresh  min length, max gap:
     lines = cv2.HoughLinesP(processed_img, 1, np.pi / 180, 180, 30, 15)
+    m1 = 0
+    m2 = 0
     try:
-        l1, l2 = draw_lanes(original_image, lines)
+        l1, l2, m1, m2 = draw_lanes(original_image, lines)
         cv2.line(original_image, (l1[0], l1[1]), (l1[2], l1[3]), [0, 255, 0], 30)
         cv2.line(original_image, (l2[0], l2[1]), (l2[2], l2[3]), [0, 255, 0], 30)
     except Exception as e:
@@ -139,13 +148,36 @@ def process_img(image):
             try:
                 cv2.line(processed_img, (coords[0], coords[1]), (coords[2], coords[3]), [255, 0, 0], 3)
 
-
             except Exception as e:
                 print(str(e))
     except Exception as e:
         pass
 
-    return processed_img, original_image
+    return processed_img, original_image, m1, m2
+
+
+def straight():
+    PressKey(W)
+    ReleaseKey(A)
+    ReleaseKey(D)
+
+
+def left():
+    PressKey(A)
+    ReleaseKey(W)
+    ReleaseKey(D)
+
+
+def right():
+    PressKey(D)
+    ReleaseKey(A)
+    ReleaseKey(W)
+
+
+def slow_ya_roll():
+    ReleaseKey(W)
+    ReleaseKey(A)
+    ReleaseKey(D)
 
 
 def main():
@@ -154,9 +186,18 @@ def main():
         screen = np.array(ImageGrab.grab(bbox=(0, 40, 800, 640)))
         print('Frame took {} seconds'.format(time.time() - last_time))
         last_time = time.time()
-        new_screen, original_image = process_img(screen)
-        cv2.imshow('window', new_screen)
-        #cv2.imshow('window2', cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
+        new_screen, original_image, m1, m2 = process_img(screen)
+        #cv2.imshow('window', new_screen)
+        cv2.imshow('window2', cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB))
+
+        if m1 < 0 and m2 < 0:
+            right()
+        elif m1 > 0 and m2 > 0:
+            left()
+        else:
+            straight()
+
+        print('M1 = {} '.format(m1))
         # cv2.imshow('window',cv2.cvtColor(screen, cv2.COLOR_BGR2RGB))
         if cv2.waitKey(25) & 0xFF == ord('q'):
             cv2.destroyAllWindows()
