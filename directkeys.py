@@ -16,6 +16,8 @@ W = 0x11
 A = 0x1E
 S = 0x1F
 D = 0x20
+Left = 0xCB
+Right = 0xCD
 
 
 class KeyBdInput(ctypes.Structure):
